@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "Workspace": {
+      "title": "Workspace",
+      "description": "Represents a collection of cards and tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "order": { "type": "integer" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["id", "title", "order", "createdAt"]
+    },
+    "Card": {
+      "title": "Card",
+      "description": "A column or vertical group of tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "viewMode": { "type": "string", "enum": ["card", "list"] },
+        "order": { "type": "integer" },
+        "workspaceId": { "type": "string" }
+      },
+      "required": ["id", "title", "workspaceId"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A single to-do item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "reminder": { "type": "string" },
+        "reminderSent": { "type": "boolean" },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "integer" },
+        "cardId": { "type": "string" },
+        "workspaceId": { "type": "string" },
+        "order": { "type": "integer" },
+        "labelId": { "type": "string" },
+        "assigneeId": { "type": "string" }
+      },
+      "required": ["id", "title", "priority", "completed", "cardId", "workspaceId", "order"]
+    },
+    "Label": {
+      "title": "Label",
+      "description": "A custom tag for tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" }
+      },
+      "required": ["id", "name", "color"]
+    },
+    "TeamMember": {
+      "title": "Team Member",
+      "description": "A member that can be assigned to tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" }
+      },
+      "required": ["id", "name", "color"]
+    },
+    "Automation": {
+      "title": "Automation",
+      "description": "A rule that triggers an action on tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "trigger": { "type": "string" },
+        "triggerCardId": { "type": "string" },
+        "triggerMemberId": { "type": "string" },
+        "action": { "type": "string" },
+        "actionLabelId": { "type": "string" },
+        "actionMemberId": { "type": "string" },
+        "enabled": { "type": "boolean" }
+      },
+      "required": ["id", "name", "trigger", "action", "enabled"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/workspaces/{workspaceId}": {
+      "schema": "Workspace",
+      "description": "User's workspaces"
+    },
+    "/users/{userId}/cards/{cardId}": {
+      "schema": "Card",
+      "description": "User's cards/columns"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User's tasks"
+    },
+    "/users/{userId}/labels/{labelId}": {
+      "schema": "Label",
+      "description": "User's custom labels"
+    },
+    "/users/{userId}/automations/{automationId}": {
+      "schema": "Automation",
+      "description": "User's automations"
+    },
+    "/users/{userId}/team_members/{memberId}": {
+      "schema": "TeamMember",
+      "description": "User's team members"
+    }
+  }
+}

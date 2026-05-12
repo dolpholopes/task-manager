@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isValidId(id) { return id is string && id.size() <= 128; }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /workspaces/{workspaceId} {
+        allow read, write: if isOwner(userId) && isValidId(workspaceId);
+      }
+
+      match /cards/{cardId} {
+        allow read, write: if isOwner(userId) && isValidId(cardId);
+      }
+
+      match /tasks/{taskId} {
+        allow read, write: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /labels/{labelId} {
+        allow read, write: if isOwner(userId) && isValidId(labelId);
+      }
+
+      match /automations/{automationId} {
+        allow read, write: if isOwner(userId) && isValidId(automationId);
+      }
+    }
+  }
+}

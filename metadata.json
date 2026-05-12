@@ -1,0 +1,5 @@
+{
+  "name": "Task Manager",
+  "description": "Um sistema simples e eficiente para gerenciar tarefas com datas de vencimento e visualização em cartões.",
+  "requestFramePermissions": []
+}
