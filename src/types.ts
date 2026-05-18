@@ -1,11 +1,31 @@
 export type Priority = 'high' | 'medium' | 'low';
 export type Reminder = 'none' | '15-minutes' | '1-hour' | '1-day';
 
+export type WorkspaceRole = 'owner' | 'editor' | 'viewer';
+
 export interface Workspace {
   id: string;
   title: string;
+  ownerId: string;
+  inviteCode?: string;
+  inviteRole?: 'editor' | 'viewer';
   order: number;
   createdAt: number;
+}
+
+export interface WorkspaceMember {
+  userId: string;
+  email: string;
+  name: string;
+  photoURL?: string;
+  role: WorkspaceRole;
+  joinedAt: number;
+}
+
+export interface Invite {
+  workspaceId: string;
+  code: string;
+  role: 'editor' | 'viewer';
 }
 
 export interface Card {
@@ -15,6 +35,8 @@ export interface Card {
   order?: number;
   workspaceId: string;
   width?: number;
+  isPinned?: boolean;
+  assigneeId?: string;
 }
 
 export interface Task {
@@ -33,6 +55,7 @@ export interface Task {
   order: number;
   labelId?: string;
   assigneeId?: string;
+  isPinned?: boolean;
 }
 
 export interface Label {

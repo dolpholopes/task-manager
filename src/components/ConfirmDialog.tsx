@@ -27,12 +27,16 @@ export function ConfirmDialog({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+          onClick={onCancel}
+        >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex items-start gap-4">
@@ -40,7 +44,7 @@ export function ConfirmDialog({
                   "p-3 rounded-xl flex-shrink-0",
                   variant === 'danger' ? "bg-red-100 text-red-600" :
                   variant === 'warning' ? "bg-orange-100 text-orange-600" :
-                  "bg-blue-100 text-blue-600"
+                  "bg-slate-100 text-slate-600"
                 )}>
                   <AlertTriangle className="w-6 h-6" />
                 </div>

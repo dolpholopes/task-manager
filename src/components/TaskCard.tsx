@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, CheckCircle2, Circle, Trash2, Clock, AlertCircle, Bell, Pencil, Tag, Plus } from 'lucide-react';
+import { Calendar, CheckCircle2, Circle, Trash2, Clock, AlertCircle, Bell, Pencil, Tag, Plus, Pin, PinOff } from 'lucide-react';
 import { Task, Priority, Label, TeamMember } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -12,6 +12,7 @@ interface TaskCardProps {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (task: Task) => void;
+  onTogglePin?: (id: string) => void;
   onUpdateLabel?: (taskId: string, labelId: string | undefined) => void;
   onUpdateAssignee?: (taskId: string, memberId: string | undefined) => void;
   onAddLabel?: (name: string, color: string) => Promise<void>;
@@ -27,7 +28,7 @@ const priorityConfig: Record<Priority, { color: string; bg: string; border: stri
   low: { color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-l-emerald-500', label: 'Baixa' },
 };
 
-export function TaskCard({ task, onToggle, onDelete, onEdit, onUpdateLabel, onUpdateAssignee, onAddLabel, onAddMember, labels = [], teamMembers = [], isCompact = false }: TaskCardProps) {
+export function TaskCard({ task, onToggle, onDelete, onEdit, onTogglePin, onUpdateLabel, onUpdateAssignee, onAddLabel, onAddMember, labels = [], teamMembers = [], isCompact = false }: TaskCardProps) {
   // Check if overdue: due date is before today (end of day)
   const isOverdue = task.dueDate && new Date(task.dueDate + 'T' + (task.dueTime || '23:59') + ':59') < new Date() && !task.completed;
   const priority = priorityConfig[task.priority || 'medium'];
@@ -290,6 +291,18 @@ export function TaskCard({ task, onToggle, onDelete, onEdit, onUpdateLabel, onUp
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+          {onTogglePin && (
+            <button
+              onClick={() => onTogglePin(task.id)}
+              className={cn(
+                "p-1 rounded transition-colors bg-slate-50 lg:bg-transparent",
+                task.isPinned ? "text-primary bg-primary-light/50 lg:opacity-100" : "text-slate-400 hover:text-primary hover:bg-primary-light"
+              )}
+              title={task.isPinned ? "Desafixar" : "Fixar tarefa"}
+            >
+              <Pin className={cn("w-3 h-3", task.isPinned && "fill-current")} />
+            </button>
+          )}
           <button
             onClick={() => onEdit(task)}
             className="p-1 text-slate-400 hover:text-primary hover:bg-primary-light rounded transition-colors bg-slate-50 lg:bg-transparent"
@@ -535,6 +548,18 @@ export function TaskCard({ task, onToggle, onDelete, onEdit, onUpdateLabel, onUp
         </div>
 
         <div className="absolute top-4 right-4 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+          {onTogglePin && (
+            <button
+              onClick={() => onTogglePin(task.id)}
+              className={cn(
+                "p-1.5 rounded-md transition-colors bg-slate-50 lg:bg-transparent",
+                task.isPinned ? "text-primary bg-primary-light/50 lg:opacity-100" : "text-slate-400 hover:text-primary hover:bg-primary-light"
+              )}
+              title={task.isPinned ? "Desafixar" : "Fixar tarefa"}
+            >
+              <Pin className={cn("w-4 h-4", task.isPinned && "fill-current")} />
+            </button>
+          )}
           <button
             onClick={() => onEdit(task)}
             className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary-light rounded-md transition-colors bg-slate-50 lg:bg-transparent"

@@ -1,5 +1,5 @@
 {
   "name": "Task Manager",
-  "description": "Um sistema simples e eficiente para gerenciar tarefas com datas de vencimento e visualização em cartões.",
+  "description": "Um sistema robusto para gerenciar tarefas em áreas de trabalho compartilhadas, com sistema de convites, permissões de acesso (Proprietário, Editor, Visualizador) e automações de fluxo de trabalho.",
   "requestFramePermissions": []
 }

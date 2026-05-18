@@ -7,10 +7,37 @@
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "inviteCode": { "type": "string" },
         "order": { "type": "integer" },
         "createdAt": { "type": "integer" }
       },
-      "required": ["id", "title", "order", "createdAt"]
+      "required": ["id", "title", "ownerId", "order", "createdAt"]
+    },
+    "WorkspaceMember": {
+      "title": "Workspace Member",
+      "description": "A user that has access to a workspace",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "editor", "viewer"] },
+        "joinedAt": { "type": "integer" }
+      },
+      "required": ["userId", "role", "joinedAt"]
+    },
+    "Invite": {
+      "title": "Invite Code",
+      "description": "A code used to join a workspace",
+      "type": "object",
+      "properties": {
+        "workspaceId": { "type": "string" },
+        "code": { "type": "string" },
+        "role": { "type": "string", "enum": ["editor", "viewer"] }
+      },
+      "required": ["workspaceId", "code", "role"]
     },
     "Card": {
       "title": "Card",
@@ -88,29 +115,41 @@
     }
   },
   "firestore": {
-    "/users/{userId}/workspaces/{workspaceId}": {
+    "/workspaces/{workspaceId}": {
       "schema": "Workspace",
-      "description": "User's workspaces"
+      "description": "Global workspaces"
     },
-    "/users/{userId}/cards/{cardId}": {
+    "/workspaces/{workspaceId}/members/{userId}": {
+      "schema": "WorkspaceMember",
+      "description": "Workspace members and roles"
+    },
+    "/workspaces/{workspaceId}/cards/{cardId}": {
       "schema": "Card",
-      "description": "User's cards/columns"
+      "description": "Cards within a workspace"
     },
-    "/users/{userId}/tasks/{taskId}": {
+    "/workspaces/{workspaceId}/tasks/{taskId}": {
       "schema": "Task",
-      "description": "User's tasks"
+      "description": "Tasks within a workspace"
     },
-    "/users/{userId}/labels/{labelId}": {
+    "/workspaces/{workspaceId}/labels/{labelId}": {
       "schema": "Label",
-      "description": "User's custom labels"
+      "description": "Labels within a workspace"
     },
-    "/users/{userId}/automations/{automationId}": {
+    "/workspaces/{workspaceId}/automations/{automationId}": {
       "schema": "Automation",
-      "description": "User's automations"
+      "description": "Automations within a workspace"
     },
-    "/users/{userId}/team_members/{memberId}": {
+    "/workspaces/{workspaceId}/team_members/{memberId}": {
       "schema": "TeamMember",
-      "description": "User's team members"
+      "description": "Team members within a workspace"
+    },
+    "/users/{userId}/memberships/{workspaceId}": {
+      "schema": "WorkspaceMember",
+      "description": "Redundant member data for fast querying of a user's workspaces"
+    },
+    "/invites/{code}": {
+      "schema": "Invite",
+      "description": "Active invite codes"
     }
   }
 }

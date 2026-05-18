@@ -11,15 +11,15 @@ interface TeamManagerProps {
 }
 
 const COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#64748b', // slate
-  '#0ea5e9', // sky
-  '#f43f5e', // rose
+  '#0f172a', // slate-900
+  '#334155', // slate-700
+  '#475569', // slate-600
+  '#64748b', // slate-500
+  '#2563eb', // blue-600
+  '#059669', // emerald-600
+  '#d97706', // amber-600
+  '#db2777', // pink-600
+  '#7c3aed', // violet-600
 ];
 
 export function TeamManager({ members, onAddMember, onDeleteMember, onClose }: TeamManagerProps) {
@@ -42,11 +42,15 @@ export function TeamManager({ members, onAddMember, onDeleteMember, onClose }: T
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+    <div 
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-2">

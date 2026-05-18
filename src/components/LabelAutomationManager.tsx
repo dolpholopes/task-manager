@@ -17,9 +17,9 @@ interface LabelAutomationManagerProps {
 }
 
 const PRESET_COLORS = [
-  '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', 
-  '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', 
-  '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b'
+  '#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', 
+  '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#94a3b8',
+  '#1e293b', '#475569', '#cbd5e1', '#0f172a', '#71717a'
 ];
 
 export function LabelAutomationManager({
@@ -94,8 +94,14 @@ export function LabelAutomationManager({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+    <div 
+      className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
              <div className="p-2 bg-primary-light rounded-xl text-primary">

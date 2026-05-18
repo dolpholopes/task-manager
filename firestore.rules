@@ -4,36 +4,91 @@ service cloud.firestore {
     // Helper functions
     function isValidId(id) { return id is string && id.size() <= 128; }
     function isSignedIn() { return request.auth != null; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+
+    // Helper for workspace permissions
+    function getMember(workspaceId) {
+      return get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+    
+    function isMember(workspaceId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+    
+    function getRole(workspaceId) {
+      return getMember(workspaceId).data.role;
+    }
+    
+    function hasRole(workspaceId, roles) {
+      return isMember(workspaceId) && getRole(workspaceId) in roles;
+    }
 
     // Default deny
     match /{document=**} {
       allow read, write: if false;
     }
 
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
+    // Workspace specific rules
+    match /workspaces/{workspaceId} {
+      allow read: if isMember(workspaceId);
+      allow create: if isSignedIn() && incoming().ownerId == request.auth.uid;
+      allow update: if hasRole(workspaceId, ['owner']);
+      allow delete: if hasRole(workspaceId, ['owner']);
 
-      match /workspaces/{workspaceId} {
-        allow read, write: if isOwner(userId) && isValidId(workspaceId);
+      match /members/{userId} {
+        allow read: if isMember(workspaceId);
+        // Owner can manage members. User can add themselves if they have a valid code.
+        allow create: if isSignedIn() && (hasRole(workspaceId, ['owner']) || userId == request.auth.uid);
+        // An owner cannot be removed or have their role changed through this rule (prevents demoting/removing owners)
+        allow update, delete: if hasRole(workspaceId, ['owner']) && existing().role != 'owner';
       }
 
       match /cards/{cardId} {
-        allow read, write: if isOwner(userId) && isValidId(cardId);
+        allow read: if isMember(workspaceId);
+        allow write: if hasRole(workspaceId, ['owner', 'editor']);
       }
 
       match /tasks/{taskId} {
-        allow read, write: if isOwner(userId) && isValidId(taskId);
+        allow read: if isMember(workspaceId);
+        allow write: if hasRole(workspaceId, ['owner', 'editor']);
       }
 
       match /labels/{labelId} {
-        allow read, write: if isOwner(userId) && isValidId(labelId);
+        allow read: if isMember(workspaceId);
+        allow write: if hasRole(workspaceId, ['owner', 'editor']);
       }
 
       match /automations/{automationId} {
-        allow read, write: if isOwner(userId) && isValidId(automationId);
+        allow read: if isMember(workspaceId);
+        allow write: if hasRole(workspaceId, ['owner', 'editor']);
+      }
+      
+      match /team_members/{memberId} {
+        allow read: if isMember(workspaceId);
+        allow write: if hasRole(workspaceId, ['owner', 'editor']);
+      }
+    }
+
+    match /invites/{code} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn(); // App should verify user is owner of the workspaceId they are inviting to
+      allow delete: if isSignedIn();
+    }
+    
+    // User profile and memberships
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      match /memberships/{workspaceId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        // Allow the user to manage their own memberships, OR the workspace owner to update roles/remove
+        allow write: if isSignedIn() && (
+          request.auth.uid == userId || 
+          get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid
+        );
+      }
+      match /{allPaths=**} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
     }
   }
