@@ -4,14 +4,15 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Task, Priority, Reminder, Card, Workspace, Label, Automation, AutomationTrigger, TeamMember, WorkspaceMember, Invite } from './types';
+import { Task, Priority, Reminder, Card, Workspace, Label, Automation, AutomationTrigger, TeamMember, WorkspaceMember, Invite, StickyNote } from './types';
 import { TaskCard } from './components/TaskCard';
 import { TaskForm } from './components/TaskForm';
 import { LabelAutomationManager } from './components/LabelAutomationManager';
 import { TeamManager } from './components/TeamManager';
+import { StickyNoteBoard } from './components/StickyNoteBoard';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { Logo } from './components/Logo';
-import { LayoutGrid, ListTodo, CheckSquare, SlidersHorizontal, ArrowUpDown, FolderPlus, Trash2, MoreVertical, LogOut, GripVertical, Briefcase, Plus, ChevronRight, Download, Bell, BellOff, Tag, Zap, Users, PanelLeftClose, PanelLeft, Menu as MenuIcon, X, Pencil, Check, Pin, User as UserIcon } from 'lucide-react';
+import { LayoutGrid, ListTodo, CheckSquare, SlidersHorizontal, ArrowUpDown, FolderPlus, Trash2, MoreVertical, LogOut, GripVertical, Briefcase, Plus, ChevronRight, Download, Bell, BellOff, Tag, Zap, Users, PanelLeftClose, PanelLeft, Menu as MenuIcon, X, Pencil, Check, Pin, User as UserIcon, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { requestNotificationPermission, sendNotification } from './lib/notifications';
@@ -445,6 +446,10 @@ export default function App() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [activeWorkspaceMember, setActiveWorkspaceMember] = useState<WorkspaceMember | null>(null);
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
+  const [notes, setNotes] = useState<StickyNote[]>([]);
+  const [activeTab, setActiveTab] = useState<'cards' | 'notes'>('cards');
+  const [noteSearch, setNoteSearch] = useState('');
+  const [noteColorFilter, setNoteColorFilter] = useState<string | null>(null);
   const [isAddingWorkspace, setIsAddingWorkspace] = useState(false);
   const [isJoinWorkspaceOpen, setIsJoinWorkspaceOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
@@ -794,12 +799,23 @@ export default function App() {
       console.error("Firestore Error (Automations): ", error);
     });
 
+    const notesUnsubscribe = onSnapshot(collection(db, `workspaces/${activeWorkspaceId}/notes`), (snapshot) => {
+      const loadedNotes: StickyNote[] = [];
+      snapshot.forEach(doc => {
+        loadedNotes.push(doc.data() as StickyNote);
+      });
+      setNotes(loadedNotes);
+    }, (error) => {
+      console.error("Firestore Error (Notes): ", error);
+    });
+
     return () => {
       cardsUnsubscribe();
       tasksUnsubscribe();
       labelsUnsubscribe();
       teamUnsubscribe();
       automationsUnsubscribe();
+      notesUnsubscribe();
     };
   }, [user, isAuthReady, activeWorkspaceId, canWrite]);
 
@@ -849,6 +865,21 @@ export default function App() {
           // Persist to Firestore
           updateDoc(doc(db, `workspaces/${activeWorkspaceId}/tasks`, task.id), { reminderSent: true })
             .catch(err => console.error("Error updating reminder status:", err));
+        }
+      });
+
+      // Sticky Note Reminders
+      notes.forEach(note => {
+        if (!note.reminderDate || !note.reminderTime || note.reminderSent) return;
+
+        const [year, month, day] = note.reminderDate.split('-').map(Number);
+        const [hour, minute] = note.reminderTime.split(':').map(Number);
+        const reminderTimeObj = new Date(year, month - 1, day, hour, minute, 0);
+
+        if (now >= reminderTimeObj) {
+          sendNotification(`Lembrete de Anotação`, note.content.slice(0, 50) + (note.content.length > 50 ? '...' : ''));
+          updateDoc(doc(db, `workspaces/${activeWorkspaceId}/notes`, note.id), { reminderSent: true })
+            .catch(err => console.error("Error updating note reminder status:", err));
         }
       });
     };
@@ -1246,6 +1277,29 @@ export default function App() {
     }
   };
 
+  const addNote = async () => {
+    if (!user || !activeWorkspaceId || !canWrite) return;
+    const newNote: StickyNote = {
+      id: crypto.randomUUID(),
+      content: '',
+      color: 'bg-[#fef3c7]',
+      workspaceId: activeWorkspaceId,
+      createdAt: Date.now(),
+      order: 0
+    };
+    await setDoc(doc(db, `workspaces/${activeWorkspaceId}/notes`, newNote.id), newNote);
+  };
+
+  const updateNote = async (id: string, data: Partial<StickyNote>) => {
+    if (!user || !activeWorkspaceId || !canWrite) return;
+    await updateDoc(doc(db, `workspaces/${activeWorkspaceId}/notes`, id), data);
+  };
+
+  const deleteNote = async (id: string) => {
+    if (!user || !activeWorkspaceId || !canWrite) return;
+    await deleteDoc(doc(db, `workspaces/${activeWorkspaceId}/notes`, id));
+  };
+
   const getFilteredTasks = (cardId: string) => {
     return tasks
       .filter(task => task.cardId === cardId)
@@ -1451,30 +1505,6 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] overflow-hidden bg-slate-50 font-sans text-slate-900 selection:bg-primary-light selection:text-slate-900 relative">
-      {/* Compact Notification Status Icon - Fixed at top right */}
-      <div className="fixed top-4 right-4 lg:top-8 lg:right-8 z-[60]">
-        <button
-          onClick={handleRequestPermission}
-          title={
-            notificationPermission === 'granted' 
-              ? 'Notificações Ativadas' 
-              : notificationPermission === 'denied' 
-                ? 'Notificações Bloqueadas' 
-                : 'Ativar Notificações'
-          }
-          className={cn(
-            "p-2 rounded-full transition-all border shadow-lg bg-white",
-            notificationPermission === 'granted'
-              ? "border-emerald-100 text-emerald-600 hover:bg-emerald-50"
-              : notificationPermission === 'denied'
-                ? "border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
-                : "border-slate-200 text-slate-400 hover:text-primary hover:border-primary-light hover:bg-primary-light/10"
-          )}
-        >
-          {notificationPermission === 'granted' ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
-        </button>
-      </div>
-
       <div className="w-full px-4 lg:px-8 h-full flex flex-col py-4 lg:py-8">
         
         {/* Mobile Header */}
@@ -1486,6 +1516,26 @@ export default function App() {
             <span className="font-bold text-slate-900 text-sm">Task Manager</span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleRequestPermission}
+              title={
+                notificationPermission === 'granted' 
+                  ? 'Notificações Ativadas' 
+                  : notificationPermission === 'denied' 
+                    ? 'Notificações Bloqueadas' 
+                    : 'Ativar Notificações'
+              }
+              className={cn(
+                "p-2 rounded-xl transition-all border shadow-sm bg-white",
+                notificationPermission === 'granted'
+                  ? "border-emerald-100 text-emerald-600 hover:bg-emerald-50"
+                  : notificationPermission === 'denied'
+                    ? "border-slate-200 text-slate-400 opacity-40 cursor-not-allowed"
+                    : "border-slate-200 text-slate-400 hover:text-primary hover:border-primary-light hover:bg-primary-light/10"
+              )}
+            >
+              {notificationPermission === 'granted' ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+            </button>
             <button 
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary transition-colors"
@@ -1858,13 +1908,26 @@ export default function App() {
                     <p className="text-sm font-bold text-slate-900 truncate">
                       {user.displayName || 'Usuário'}
                     </p>
-                    <button
-                      onClick={() => signOut(auth)}
-                      className="text-xs font-medium text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1"
-                    >
-                      <LogOut className="w-3 h-3" />
-                      Sair
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => signOut(auth)}
+                        className="text-xs font-medium text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                      >
+                        <LogOut className="w-3 h-3" />
+                        Sair
+                      </button>
+                      <span className="text-slate-200">|</span>
+                      <button
+                        onClick={handleRequestPermission}
+                        className={cn(
+                          "transition-colors",
+                          notificationPermission === 'granted' ? "text-emerald-500" : "text-slate-400 hover:text-primary"
+                        )}
+                        title="Configurar Notificações"
+                      >
+                        {notificationPermission === 'granted' ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1875,80 +1938,166 @@ export default function App() {
           <main className={cn("flex-1 min-w-0 flex flex-col h-full overflow-hidden transition-all duration-300", isSidebarCollapsed ? "lg:ml-4" : "")}>
             
             {/* Filters and Sort Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-3 rounded-xl border border-slate-100 shadow-sm mt-2 mb-6 transition-all hover:border-slate-200">
-              <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-3 md:p-1.5 rounded-2xl border border-slate-100 shadow-sm mt-2 mb-6 transition-all hover:border-slate-200">
+              <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 w-full">
                 {/* Workspace Title in Toolbar */}
-                <div className="flex items-center gap-3 pr-4 border-r border-slate-100 h-10">
-                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                    <Briefcase className="w-4 h-4" />
+                <div className="flex items-center gap-3 pr-4 md:border-r border-slate-100 md:h-8">
+                  <div className="p-1.5 bg-primary/10 rounded-lg text-primary flex-shrink-0">
+                    <Briefcase className="w-3.5 h-3.5" />
                   </div>
-                  <h2 className="text-sm font-bold text-slate-800 tracking-tight whitespace-nowrap">
+                  <h2 className="text-xs font-bold text-slate-800 tracking-tight whitespace-nowrap">
                     {workspaces.find(w => w.id === activeWorkspaceId)?.title || 'Área de Trabalho'}
                   </h2>
                 </div>
 
-                <div className="flex items-center gap-2 overflow-x-auto pr-4 border-r border-slate-100">
-                  <SlidersHorizontal className="w-4 h-4 text-slate-400 ml-2" />
-                  <select
-                    value={priorityFilter}
-                    onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')}
-                    className="text-sm border-none bg-transparent focus:ring-0 text-slate-600 font-bold cursor-pointer"
-                  >
-                    <option value="all">Prioridades</option>
-                    <option value="high">Alta</option>
-                    <option value="medium">Média</option>
-                    <option value="low">Baixa</option>
-                  </select>
-                </div>
+                {activeTab === 'cards' ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5 pr-3 md:border-r border-slate-100">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                      <select
+                        value={priorityFilter}
+                        onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')}
+                        className="text-[11px] border-none bg-transparent focus:ring-0 text-slate-600 font-bold cursor-pointer p-0"
+                      >
+                        <option value="all">Prioridades</option>
+                        <option value="high">Alta</option>
+                        <option value="medium">Média</option>
+                        <option value="low">Baixa</option>
+                      </select>
+                    </div>
 
-                <div className="flex items-center gap-2">
-                  <ArrowUpDown className="w-4 h-4 text-slate-400" />
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="text-sm border-none bg-transparent focus:ring-0 text-slate-600 font-bold cursor-pointer"
-                  >
-                    <option value="order">Ordem</option>
-                    <option value="createdAt">Antigas</option>
-                    <option value="dueDate">Vencimento</option>
-                    <option value="priority">Prioridade</option>
-                  </select>
-                </div>
+                    <div className="flex items-center gap-1.5">
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="text-[11px] border-none bg-transparent focus:ring-0 text-slate-600 font-bold cursor-pointer p-0"
+                      >
+                        <option value="order">Ordem</option>
+                        <option value="createdAt">Antigas</option>
+                        <option value="dueDate">Vencimento</option>
+                        <option value="priority">Prioridade</option>
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full">
+                    <div className="relative group w-full sm:w-auto">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-hover:text-primary transition-colors" />
+                      <input
+                        type="text"
+                        placeholder="Pesquisar notas..."
+                        value={noteSearch}
+                        onChange={(e) => setNoteSearch(e.target.value)}
+                        className="pl-9 pr-4 py-1.5 bg-slate-50 border-none rounded-xl text-xs focus:ring-4 focus:ring-primary/10 transition-all w-full sm:w-[220px] shadow-sm font-medium"
+                      />
+                    </div>
+                    
+                    <div className="flex items-center gap-1.5 p-1 bg-slate-50 rounded-xl overflow-x-auto max-w-full scrollbar-none">
+                      <button 
+                        onClick={() => setNoteColorFilter(null)}
+                        className={cn(
+                          "px-2 py-1 rounded-lg text-[9px] font-bold transition-all uppercase flex-shrink-0",
+                          !noteColorFilter ? "bg-white text-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                        )}
+                      >
+                        Todas
+                      </button>
+                      {[
+                        'bg-[#fef3c7]', 'bg-[#dbeafe]', 'bg-[#dcfce7]', 
+                        'bg-[#fce7f3]', 'bg-[#f3e8ff]', 'bg-[#ffedd5]'
+                      ].map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setNoteColorFilter(noteColorFilter === color ? null : color)}
+                          className={cn(
+                            "w-5 h-5 rounded-lg border-2 transition-all hover:scale-110 flex-shrink-0",
+                            color,
+                            noteColorFilter === color ? "border-slate-800 shadow-md" : "border-transparent"
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Cards & Task Lists */}
+            {/* Cards & Task Lists Toggle and Actions */}
             <div className="flex-1 flex flex-col overflow-hidden space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-shrink-0 px-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-slate-800 tracking-tight">Cards</h2>
-                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{cards.length}</span>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0 px-1">
+                <div className="flex items-center justify-between md:justify-start gap-4">
+                  <div className="flex items-center p-1 bg-slate-100 rounded-2xl overflow-hidden shadow-inner">
+                    <button
+                      onClick={() => setActiveTab('cards')}
+                      className={cn(
+                        "px-4 py-2 text-[11px] font-bold rounded-xl transition-all",
+                        activeTab === 'cards' 
+                          ? "bg-white text-slate-800 shadow-sm" 
+                          : "text-slate-500 hover:text-slate-800"
+                      )}
+                    >
+                      Cards
+                      <span className="ml-1.5 opacity-40">{cards.length}</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('notes')}
+                      className={cn(
+                        "px-4 py-2 text-[11px] font-bold rounded-xl transition-all",
+                        activeTab === 'notes' 
+                          ? "bg-white text-slate-800 shadow-sm" 
+                          : "text-slate-500 hover:text-slate-800"
+                      )}
+                    >
+                      Anotações
+                      <span className="ml-1.5 opacity-40">{notes.length}</span>
+                    </button>
+                  </div>
+
+                  {canWrite && activeTab === 'notes' && (
+                    <button
+                      onClick={addNote}
+                      className="md:hidden flex items-center justify-center p-2.5 bg-slate-900 text-white rounded-xl shadow-lg active:scale-95 transition-all"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                  {canWrite && (
+
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                  {canWrite && activeTab === 'cards' && (
                     <>
                       <button
                         onClick={() => setIsLabelManagerOpen(true)}
-                        className="text-xs font-bold text-primary hover:text-primary-dark flex items-center gap-1.5 whitespace-nowrap bg-primary-light/40 px-3.5 py-2 rounded-xl transition-colors"
+                        className="text-[11px] font-bold text-primary hover:text-primary-dark flex items-center gap-2 whitespace-nowrap bg-primary-light/40 px-4 py-2.5 rounded-xl transition-colors"
                       >
-                        <Zap className="w-4 h-4" />
+                        <Zap className="w-3.5 h-3.5" />
                         Automações
                       </button>
                       <button
                         onClick={() => setIsTeamManagerOpen(true)}
-                        className="text-xs font-bold text-primary hover:text-primary-dark flex items-center gap-1.5 whitespace-nowrap bg-primary-light/40 px-3.5 py-2 rounded-xl transition-colors"
+                        className="text-[11px] font-bold text-primary hover:text-primary-dark flex items-center gap-2 whitespace-nowrap bg-primary-light/40 px-4 py-2.5 rounded-xl transition-colors"
                       >
-                        <Users className="w-4 h-4" />
+                        <Users className="w-3.5 h-3.5" />
                         Equipe
                       </button>
                       <button
                         onClick={() => setIsAddingCard(true)}
-                        className="text-xs font-bold text-primary hover:text-primary-dark flex items-center gap-1.5 whitespace-nowrap bg-primary/10 px-3.5 py-2 rounded-xl transition-colors"
+                        className="text-[11px] font-bold text-white bg-primary hover:bg-primary-dark flex items-center gap-2 whitespace-nowrap px-4 py-2.5 rounded-xl transition-all shadow-md shadow-primary/20"
                       >
-                        <FolderPlus className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
                         Novo Card
                       </button>
                     </>
+                  )}
+                  {canWrite && activeTab === 'notes' && (
+                    <button
+                      onClick={addNote}
+                      className="hidden md:flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold shadow-lg hover:bg-slate-800 active:scale-95 transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Nova Anotação
+                    </button>
                   )}
                 </div>
               </div>
@@ -1984,13 +2133,14 @@ export default function App() {
                 </motion.form>
               )}
 
-              <DndContext
-                sensors={sensors}
-                collisionDetection={pointerWithin}
-                onDragStart={onDragStart}
-                onDragOver={onDragOver}
-                onDragEnd={onDragEnd}
-              >
+              {activeTab === 'cards' ? (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={pointerWithin}
+                  onDragStart={onDragStart}
+                  onDragOver={onDragOver}
+                  onDragEnd={onDragEnd}
+                >
                 <SortableContext
                   items={cards.map(c => c.id)}
                   strategy={horizontalListSortingStrategy}
@@ -2109,7 +2259,19 @@ export default function App() {
                   ) : null}
                 </DragOverlay>
               </DndContext>
-            </div>
+            ) : (
+              <div className="flex-1 overflow-hidden bg-white/40 rounded-3xl border border-slate-100/50">
+                <StickyNoteBoard
+                  notes={notes}
+                  search={noteSearch}
+                  filter={noteColorFilter}
+                  onUpdate={updateNote}
+                  onDelete={deleteNote}
+                  canWrite={canWrite}
+                />
+              </div>
+            )}
+          </div>
           </main>
         </div>
 

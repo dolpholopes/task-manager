@@ -68,6 +68,11 @@ service cloud.firestore {
         allow read: if isMember(workspaceId);
         allow write: if hasRole(workspaceId, ['owner', 'editor']);
       }
+
+      match /notes/{noteId} {
+        allow read: if isMember(workspaceId);
+        allow write: if hasRole(workspaceId, ['owner', 'editor']);
+      }
     }
 
     match /invites/{code} {

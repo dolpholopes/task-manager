@@ -84,3 +84,17 @@ export interface Automation {
   actionMemberId?: string;
   enabled: boolean;
 }
+
+export interface StickyNote {
+  id: string;
+  content: string;
+  color: string;
+  workspaceId: string;
+  reminderDate?: string;
+  reminderTime?: string;
+  reminderSent?: boolean;
+  createdAt: number;
+  order: number;
+  width?: number;
+  height?: number;
+}

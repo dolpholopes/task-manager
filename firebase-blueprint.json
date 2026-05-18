@@ -112,6 +112,25 @@
         "enabled": { "type": "boolean" }
       },
       "required": ["id", "name", "trigger", "action", "enabled"]
+    },
+    "StickyNote": {
+      "title": "Sticky Note",
+      "description": "A quick note with color and optional reminder",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "content": { "type": "string" },
+        "color": { "type": "string" },
+        "workspaceId": { "type": "string" },
+        "reminderDate": { "type": "string" },
+        "reminderTime": { "type": "string" },
+        "reminderSent": { "type": "boolean" },
+        "createdAt": { "type": "integer" },
+        "order": { "type": "integer" },
+        "width": { "type": "integer" },
+        "height": { "type": "integer" }
+      },
+      "required": ["id", "content", "color", "workspaceId", "createdAt", "order"]
     }
   },
   "firestore": {
@@ -130,6 +149,10 @@
     "/workspaces/{workspaceId}/tasks/{taskId}": {
       "schema": "Task",
       "description": "Tasks within a workspace"
+    },
+    "/workspaces/{workspaceId}/notes/{noteId}": {
+      "schema": "StickyNote",
+      "description": "Notes within a workspace"
     },
     "/workspaces/{workspaceId}/labels/{labelId}": {
       "schema": "Label",
