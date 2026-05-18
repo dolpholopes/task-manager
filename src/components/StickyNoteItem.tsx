@@ -27,8 +27,10 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({ note, onUpdate, 
   const [content, setContent] = React.useState(note.content);
   const [showColorPicker, setShowColorPicker] = React.useState(false);
   const [showReminderPicker, setShowReminderPicker] = React.useState(false);
+  const [showCalendarPicker, setShowCalendarPicker] = React.useState(false);
   const [reminderDate, setReminderDate] = React.useState(note.reminderDate || '');
   const [reminderTime, setReminderTime] = React.useState(note.reminderTime || '');
+  const [calendarDate, setCalendarDate] = React.useState(note.calendarDate || format(new Date(note.createdAt), 'yyyy-MM-dd'));
   
   // Size constraints
   const minSize = 200;
@@ -54,14 +56,14 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({ note, onUpdate, 
 
   const handleSave = () => {
     if (content.trim() !== note.content) {
-      onUpdate(note.id, { content: content.trim() });
+      onUpdate(note.id, { content: content.trim(), workspaceId: note.workspaceId });
     }
     setIsEditing(false);
   };
 
   const handleToggleReminder = () => {
     if (note.reminderDate) {
-      onUpdate(note.id, { reminderDate: undefined, reminderTime: undefined, reminderSent: false });
+      onUpdate(note.id, { reminderDate: undefined, reminderTime: undefined, reminderSent: false, workspaceId: note.workspaceId });
     } else {
       setShowReminderPicker(true);
     }
@@ -69,7 +71,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({ note, onUpdate, 
 
   const saveReminder = () => {
     if (reminderDate && reminderTime) {
-      onUpdate(note.id, { reminderDate, reminderTime, reminderSent: false });
+      onUpdate(note.id, { reminderDate, reminderTime, reminderSent: false, workspaceId: note.workspaceId });
       setShowReminderPicker(false);
     }
   };
@@ -105,7 +107,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({ note, onUpdate, 
     document.removeEventListener('mouseup', stopResize);
     
     // Final persistence
-    onUpdate(note.id, { width: size.width, height: size.height });
+    onUpdate(note.id, { width: size.width, height: size.height, workspaceId: note.workspaceId });
   };
 
   return (
@@ -145,6 +147,16 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({ note, onUpdate, 
                 >
                   <Bell className={cn("w-4 h-4", note.reminderDate && "fill-current")} />
                 </button>
+                <button
+                  onClick={() => setShowCalendarPicker(true)}
+                  className={cn(
+                    "p-1 hover:bg-black/5 rounded-md transition-colors",
+                    note.calendarDate ? "bg-black/5" : ""
+                  )}
+                  title="Data no Calendário"
+                >
+                  <Calendar className="w-4 h-4" />
+                </button>
               </>
             )}
           </div>
@@ -179,8 +191,16 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({ note, onUpdate, 
 
         {/* Footer */}
         <div className="mt-4 flex items-center justify-between flex-shrink-0">
-          <div className="text-[10px] font-bold opacity-50 uppercase tracking-widest">
-            {format(note.createdAt, "dd MMM", { locale: ptBR })}
+          <div className="flex flex-col">
+            <div className="text-[10px] font-bold opacity-30 uppercase tracking-widest">
+              Criada: {format(note.createdAt, "dd MMM", { locale: ptBR })}
+            </div>
+            {note.calendarDate && (
+              <div className="text-[10px] font-bold opacity-60 uppercase tracking-widest flex items-center gap-1">
+                <Calendar className="w-2.5 h-2.5" />
+                {format(new Date(note.calendarDate + 'T00:00:00'), "dd MMM", { locale: ptBR })}
+              </div>
+            )}
           </div>
           {note.reminderDate && (
             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-black/5 rounded-full text-[10px] font-bold">
@@ -223,7 +243,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({ note, onUpdate, 
                 <button
                   key={c.bg}
                   onClick={() => {
-                    onUpdate(note.id, { color: c.bg });
+                    onUpdate(note.id, { color: c.bg, workspaceId: note.workspaceId });
                     setShowColorPicker(false);
                   }}
                   className={cn(
@@ -234,6 +254,55 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({ note, onUpdate, 
                   title={c.name}
                 />
               ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Calendar Picker Overlay */}
+      <AnimatePresence>
+        {showCalendarPicker && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 p-5 rounded-lg flex flex-col items-center justify-center text-slate-800"
+          >
+            <Calendar className="w-8 h-8 mb-4 text-primary" />
+            <h3 className="text-sm font-bold mb-4">Data no Calendário</h3>
+            
+            <div className="w-full space-y-3 mb-6">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Data</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="date"
+                    value={calendarDate}
+                    onChange={(e) => setCalendarDate(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={() => setShowCalendarPicker(false)}
+                className="flex-1 px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={!calendarDate}
+                onClick={() => {
+                  onUpdate(note.id, { calendarDate, workspaceId: note.workspaceId });
+                  setShowCalendarPicker(false);
+                }}
+                className="flex-1 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50"
+              >
+                Salvar
+              </button>
             </div>
           </motion.div>
         )}

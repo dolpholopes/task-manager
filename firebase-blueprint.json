@@ -123,6 +123,7 @@
         "color": { "type": "string" },
         "workspaceId": { "type": "string" },
         "reminderDate": { "type": "string" },
+        "calendarDate": { "type": "string" },
         "reminderTime": { "type": "string" },
         "reminderSent": { "type": "boolean" },
         "createdAt": { "type": "integer" },

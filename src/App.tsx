@@ -10,9 +10,11 @@ import { TaskForm } from './components/TaskForm';
 import { LabelAutomationManager } from './components/LabelAutomationManager';
 import { TeamManager } from './components/TeamManager';
 import { StickyNoteBoard } from './components/StickyNoteBoard';
+import { CalendarView } from './components/CalendarView';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { Logo } from './components/Logo';
-import { LayoutGrid, ListTodo, CheckSquare, SlidersHorizontal, ArrowUpDown, FolderPlus, Trash2, MoreVertical, LogOut, GripVertical, Briefcase, Plus, ChevronRight, Download, Bell, BellOff, Tag, Zap, Users, PanelLeftClose, PanelLeft, Menu as MenuIcon, X, Pencil, Check, Pin, User as UserIcon, Search } from 'lucide-react';
+import { format } from 'date-fns';
+import { LayoutGrid, ListTodo, CheckSquare, SlidersHorizontal, ArrowUpDown, FolderPlus, Trash2, MoreVertical, LogOut, GripVertical, Briefcase, Plus, ChevronRight, Download, Bell, BellOff, Tag, Zap, Users, PanelLeftClose, PanelLeft, Menu as MenuIcon, X, Pencil, Check, Pin, User as UserIcon, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { requestNotificationPermission, sendNotification } from './lib/notifications';
@@ -74,7 +76,7 @@ interface DroppableCardProps {
   onToggleViewMode: (id: string) => void;
   onDeleteCard: (id: string) => void;
   onUpdateCard: (e: React.FormEvent) => void;
-  onWidthChange: (id: string, width: number) => void;
+  onWidthChange: (id: string, width: number, workspaceId: string) => void;
   onTogglePin?: (id: string) => void;
   onUpdateAssignee?: (cardId: string, memberId: string | undefined) => void;
   editingCardId: string | null;
@@ -140,14 +142,14 @@ const DroppableCard: React.FC<DroppableCardProps> = ({
       for (const entry of entries) {
         const newWidth = Math.round(entry.contentRect.width + 32); // 32 is padding (p-4 = 16px * 2)
         if (Math.abs((card.width || 320) - newWidth) > 5) { // Threshold to prevent tiny updates
-          onWidthChange(card.id, newWidth);
+          onWidthChange(card.id, newWidth, card.workspaceId);
         }
       }
     });
 
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [card.id, card.width, onWidthChange]);
+  }, [card.id, card.width, card.workspaceId, onWidthChange]);
 
   const setRefs = (node: HTMLDivElement | null) => {
     setNodeRef(node);
@@ -220,7 +222,7 @@ const DroppableCard: React.FC<DroppableCardProps> = ({
     <div 
       ref={setRefs} 
       style={style} 
-      className="flex-shrink-0 min-w-[280px] max-w-[800px] bg-slate-50/50 rounded-2xl border border-slate-200/60 p-4 flex flex-col h-fit max-h-[calc(100vh-140px)] relative transition-colors hover:border-slate-300/80 group/card self-start"
+      className="flex-shrink-0 min-w-[280px] max-w-[800px] bg-slate-50/50 rounded-2xl border border-slate-200/60 p-4 flex flex-col h-fit max-h-[calc(100vh-320px)] relative transition-colors hover:border-slate-300/80 group/card self-start"
     >
       {/* Custom Resize Handle */}
       {!isAnyModalOpen && (
@@ -232,7 +234,7 @@ const DroppableCard: React.FC<DroppableCardProps> = ({
             
             const onMouseMove = (moveEvent: MouseEvent) => {
               const newWidth = startWidth + (moveEvent.pageX - startX);
-              onWidthChange(card.id, Math.max(280, Math.min(800, newWidth)));
+              onWidthChange(card.id, Math.max(280, Math.min(800, newWidth)), card.workspaceId);
             };
             
             const onMouseUp = () => {
@@ -447,7 +449,7 @@ export default function App() {
   const [activeWorkspaceMember, setActiveWorkspaceMember] = useState<WorkspaceMember | null>(null);
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
   const [notes, setNotes] = useState<StickyNote[]>([]);
-  const [activeTab, setActiveTab] = useState<'cards' | 'notes'>('cards');
+  const [activeTab, setActiveTab] = useState<'cards' | 'notes' | 'calendar'>('cards');
   const [noteSearch, setNoteSearch] = useState('');
   const [noteColorFilter, setNoteColorFilter] = useState<string | null>(null);
   const [isAddingWorkspace, setIsAddingWorkspace] = useState(false);
@@ -759,10 +761,10 @@ export default function App() {
     });
 
     const tasksUnsubscribe = onSnapshot(collection(db, `workspaces/${activeWorkspaceId}/tasks`), (snapshot) => {
-      const loadedTasks: Task[] = [];
-      snapshot.forEach(doc => {
-        loadedTasks.push(doc.data() as Task);
-      });
+      const loadedTasks: Task[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Task[];
       loadedTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
       setTasks(loadedTasks);
     }, (error) => {
@@ -770,40 +772,40 @@ export default function App() {
     });
 
     const labelsUnsubscribe = onSnapshot(collection(db, `workspaces/${activeWorkspaceId}/labels`), (snapshot) => {
-      const loadedLabels: Label[] = [];
-      snapshot.forEach(doc => {
-        loadedLabels.push(doc.data() as Label);
-      });
+      const loadedLabels: Label[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Label[];
       setLabels(loadedLabels);
     }, (error) => {
       console.error("Firestore Error (Labels): ", error);
     });
 
     const teamUnsubscribe = onSnapshot(collection(db, `workspaces/${activeWorkspaceId}/team_members`), (snapshot) => {
-      const loadedMembers: TeamMember[] = [];
-      snapshot.forEach(doc => {
-        loadedMembers.push(doc.data() as TeamMember);
-      });
+      const loadedMembers: TeamMember[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as TeamMember[];
       setTeamMembers(loadedMembers);
     }, (error) => {
       console.error("Firestore Error (Team): ", error);
     });
 
     const automationsUnsubscribe = onSnapshot(collection(db, `workspaces/${activeWorkspaceId}/automations`), (snapshot) => {
-      const loadedAutomations: Automation[] = [];
-      snapshot.forEach(doc => {
-        loadedAutomations.push(doc.data() as Automation);
-      });
+      const loadedAutomations: Automation[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Automation[];
       setAutomations(loadedAutomations);
     }, (error) => {
       console.error("Firestore Error (Automations): ", error);
     });
 
     const notesUnsubscribe = onSnapshot(collection(db, `workspaces/${activeWorkspaceId}/notes`), (snapshot) => {
-      const loadedNotes: StickyNote[] = [];
-      snapshot.forEach(doc => {
-        loadedNotes.push(doc.data() as StickyNote);
-      });
+      const loadedNotes: StickyNote[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as StickyNote[];
       setNotes(loadedNotes);
     }, (error) => {
       console.error("Firestore Error (Notes): ", error);
@@ -1158,15 +1160,15 @@ export default function App() {
     await deleteDoc(doc(db, `workspaces/${activeWorkspaceId}/tasks`, id));
   };
 
-  const updateCardWidth = (id: string, width: number) => {
-    if (!user || !activeWorkspaceId || !canWrite) return;
+  const updateCardWidth = (id: string, width: number, workspaceId: string) => {
+    if (!user || !workspaceId || !canWrite) return;
     setCards(prev => prev.map(c => c.id === id ? { ...c, width } : c));
 
     if (widthTimeouts.current[id]) clearTimeout(widthTimeouts.current[id]);
 
     widthTimeouts.current[id] = setTimeout(async () => {
       try {
-        await updateDoc(doc(db, `workspaces/${activeWorkspaceId}/cards`, id), { width });
+        await updateDoc(doc(db, `workspaces/${workspaceId}/cards`, id), { width });
       } catch (error) {
         console.error("Error updating card width:", error);
       }
@@ -1284,6 +1286,7 @@ export default function App() {
       content: '',
       color: 'bg-[#fef3c7]',
       workspaceId: activeWorkspaceId,
+      calendarDate: format(new Date(), 'yyyy-MM-dd'),
       createdAt: Date.now(),
       order: 0
     };
@@ -1291,8 +1294,11 @@ export default function App() {
   };
 
   const updateNote = async (id: string, data: Partial<StickyNote>) => {
-    if (!user || !activeWorkspaceId || !canWrite) return;
-    await updateDoc(doc(db, `workspaces/${activeWorkspaceId}/notes`, id), data);
+    const wsId = data.workspaceId || activeWorkspaceId;
+    if (!user || !wsId || !canWrite) return;
+    const cleanData = { ...data };
+    delete cleanData.workspaceId; // Don't try to update workspaceId field itself
+    await updateDoc(doc(db, `workspaces/${wsId}/notes`, id), cleanData);
   };
 
   const deleteNote = async (id: string) => {
@@ -1980,7 +1986,7 @@ export default function App() {
                       </select>
                     </div>
                   </div>
-                ) : (
+                ) : activeTab === 'notes' ? (
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full">
                     <div className="relative group w-full sm:w-auto">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-hover:text-primary transition-colors" />
@@ -2019,6 +2025,11 @@ export default function App() {
                       ))}
                     </div>
                   </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 rounded-xl border border-primary/10">
+                    <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[11px] font-bold text-primary">Calendário Integrado</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -2051,6 +2062,17 @@ export default function App() {
                     >
                       Anotações
                       <span className="ml-1.5 opacity-40">{notes.length}</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('calendar')}
+                      className={cn(
+                        "px-4 py-2 text-[11px] font-bold rounded-xl transition-all",
+                        activeTab === 'calendar' 
+                          ? "bg-white text-slate-800 shadow-sm" 
+                          : "text-slate-500 hover:text-slate-800"
+                      )}
+                    >
+                      Calendário
                     </button>
                   </div>
 
@@ -2170,8 +2192,8 @@ export default function App() {
                           teamMembers={teamMembers}
                         >
                         <div className={cn(
-                          "space-y-3 overflow-y-auto pr-1 flex-1 min-h-[100px] pb-10",
-                          card.viewMode === 'list' && "space-y-1 pb-10"
+                          "space-y-3 overflow-y-auto pr-1 flex-1 min-h-[100px] mb-2 px-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent",
+                          card.viewMode === 'list' && "space-y-1 mb-2"
                         )}>
                           <SortableContext
                             items={cardTasks.map(t => t.id)}
@@ -2259,7 +2281,7 @@ export default function App() {
                   ) : null}
                 </DragOverlay>
               </DndContext>
-            ) : (
+            ) : activeTab === 'notes' ? (
               <div className="flex-1 overflow-hidden bg-white/40 rounded-3xl border border-slate-100/50">
                 <StickyNoteBoard
                   notes={notes}
@@ -2268,6 +2290,13 @@ export default function App() {
                   onUpdate={updateNote}
                   onDelete={deleteNote}
                   canWrite={canWrite}
+                />
+              </div>
+            ) : (
+              <div className="flex-1 overflow-hidden">
+                <CalendarView 
+                  tasks={tasks}
+                  notes={notes}
                 />
               </div>
             )}

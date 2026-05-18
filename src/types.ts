@@ -91,6 +91,7 @@ export interface StickyNote {
   color: string;
   workspaceId: string;
   reminderDate?: string;
+  calendarDate?: string;
   reminderTime?: string;
   reminderSent?: boolean;
   createdAt: number;
