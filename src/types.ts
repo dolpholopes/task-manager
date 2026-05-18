@@ -39,6 +39,12 @@ export interface Card {
   assigneeId?: string;
 }
 
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -56,6 +62,7 @@ export interface Task {
   labelId?: string;
   assigneeId?: string;
   isPinned?: boolean;
+  checklist?: ChecklistItem[];
 }
 
 export interface Label {

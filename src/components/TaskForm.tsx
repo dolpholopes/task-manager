@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar as CalendarIcon, X, AlertCircle, Bell, Clock, Folder, Tag, User } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Plus, Calendar as CalendarIcon, X, AlertCircle, Bell, Clock, Folder, Tag, User, ListChecks, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { Priority, Reminder, Task, Card, Label, TeamMember } from '../types';
+import { Priority, Reminder, Task, Card, Label, TeamMember, ChecklistItem } from '../types';
 
 interface TaskFormProps {
   onAdd: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'reminderSent' | 'workspaceId' | 'order'>) => void;
@@ -26,6 +26,10 @@ export function TaskForm({ onAdd, onCancel, initialData, isEditing = false, card
   const [cardId, setCardId] = useState(initialData?.cardId || defaultCardId || cards[0]?.id || '');
   const [labelId, setLabelId] = useState(initialData?.labelId || '');
   const [assigneeId, setAssigneeId] = useState(initialData?.assigneeId || '');
+  
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(initialData?.checklist || []);
+  const [newChecklistItem, setNewChecklistItem] = useState('');
+  const [showChecklist, setShowChecklist] = useState((initialData?.checklist?.length || 0) > 0);
 
   useEffect(() => {
     if (isEditing) {
@@ -54,6 +58,7 @@ export function TaskForm({ onAdd, onCancel, initialData, isEditing = false, card
       cardId,
       labelId: labelId || undefined,
       assigneeId: assigneeId || undefined,
+      checklist: checklist.length > 0 ? checklist : undefined,
     });
 
     if (!isEditing) {
@@ -66,8 +71,35 @@ export function TaskForm({ onAdd, onCancel, initialData, isEditing = false, card
       setLabelId('');
       setAssigneeId('');
       setCardId(defaultCardId || cards[0]?.id || '');
+      setChecklist([]);
+      setShowChecklist(false);
       setIsOpen(false);
     }
+  };
+
+  const addChecklistItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChecklistItem.trim()) return;
+
+    setChecklist([
+      ...checklist,
+      {
+        id: crypto.randomUUID(),
+        text: newChecklistItem.trim(),
+        completed: false
+      }
+    ]);
+    setNewChecklistItem('');
+  };
+
+  const toggleChecklistItem = (id: string) => {
+    setChecklist(checklist.map(item => 
+      item.id === id ? { ...item, completed: !item.completed } : item
+    ));
+  };
+
+  const removeChecklistItem = (id: string) => {
+    setChecklist(checklist.filter(item => item.id !== id));
   };
 
   const handleCancel = () => {
@@ -138,6 +170,86 @@ export function TaskForm({ onAdd, onCancel, initialData, isEditing = false, card
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+            {/* Checklist Section Toggle */}
+            <div className="col-span-1 sm:col-span-2">
+              <button
+                type="button"
+                onClick={() => setShowChecklist(!showChecklist)}
+                className={cn(
+                  "flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors",
+                  showChecklist ? "text-primary" : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                <ListChecks className="w-4 h-4" />
+                <span>{showChecklist ? "Ocultar Checklist" : "Adicionar Checklist"}</span>
+              </button>
+
+              <AnimatePresence>
+                {showChecklist && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden mt-4 space-y-3"
+                  >
+                    <div className="space-y-2">
+                      {checklist.map(item => (
+                        <div key={item.id} className="flex items-center gap-3 group">
+                          <button
+                            type="button"
+                            onClick={() => toggleChecklistItem(item.id)}
+                            className={cn(
+                              "flex-shrink-0 transition-colors",
+                              item.completed ? "text-emerald-500" : "text-slate-300 hover:text-slate-400"
+                            )}
+                          >
+                            {item.completed ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                          </button>
+                          <span className={cn(
+                            "flex-1 text-sm transition-all",
+                            item.completed ? "text-slate-400 line-through" : "text-slate-600"
+                          )}>
+                            {item.text}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeChecklistItem(item.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-500 transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Novo item do checklist..."
+                        value={newChecklistItem}
+                        onChange={(e) => setNewChecklistItem(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addChecklistItem(e);
+                          }
+                        }}
+                        className="flex-1 text-sm bg-slate-50 border-none rounded-lg px-3 py-2 text-slate-600 placeholder:text-slate-300 focus:ring-1 focus:ring-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={addChecklistItem}
+                        disabled={!newChecklistItem.trim()}
+                        className="p-2 bg-slate-100 text-slate-400 rounded-lg hover:bg-primary-light hover:text-primary transition-colors disabled:opacity-50"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Date Picker */}
             <div className="flex items-center gap-2">
               <CalendarIcon className="w-4 h-4 text-slate-400" />

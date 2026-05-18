@@ -70,7 +70,18 @@
         "workspaceId": { "type": "string" },
         "order": { "type": "integer" },
         "labelId": { "type": "string" },
-        "assigneeId": { "type": "string" }
+        "assigneeId": { "type": "string" },
+        "checklist": { 
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" },
+              "completed": { "type": "boolean" }
+            }
+          }
+        }
       },
       "required": ["id", "title", "priority", "completed", "cardId", "workspaceId", "order"]
     },

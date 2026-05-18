@@ -1,8 +1,8 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, CheckCircle2, Circle, Trash2, Clock, AlertCircle, Bell, Pencil, Tag, Plus, Pin, PinOff } from 'lucide-react';
-import { Task, Priority, Label, TeamMember } from '../types';
+import { Calendar, CheckCircle2, Circle, Trash2, Clock, AlertCircle, Bell, Pencil, Tag, Plus, Pin, PinOff, CheckSquare, Square, ListChecks } from 'lucide-react';
+import { Task, Priority, Label, TeamMember, ChecklistItem } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { User, Users } from 'lucide-react';
@@ -15,6 +15,7 @@ interface TaskCardProps {
   onTogglePin?: (id: string) => void;
   onUpdateLabel?: (taskId: string, labelId: string | undefined) => void;
   onUpdateAssignee?: (taskId: string, memberId: string | undefined) => void;
+  onUpdateTask?: (taskId: string, data: Partial<Task>) => void;
   onAddLabel?: (name: string, color: string) => Promise<void>;
   onAddMember?: (name: string, color: string) => Promise<void>;
   labels?: Label[];
@@ -28,7 +29,7 @@ const priorityConfig: Record<Priority, { color: string; bg: string; border: stri
   low: { color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-l-emerald-500', label: 'Baixa' },
 };
 
-export function TaskCard({ task, onToggle, onDelete, onEdit, onTogglePin, onUpdateLabel, onUpdateAssignee, onAddLabel, onAddMember, labels = [], teamMembers = [], isCompact = false }: TaskCardProps) {
+export function TaskCard({ task, onToggle, onDelete, onEdit, onTogglePin, onUpdateLabel, onUpdateAssignee, onUpdateTask, onAddLabel, onAddMember, labels = [], teamMembers = [], isCompact = false }: TaskCardProps) {
   // Check if overdue: due date is before today (end of day)
   const isOverdue = task.dueDate && new Date(task.dueDate + 'T' + (task.dueTime || '23:59') + ':59') < new Date() && !task.completed;
   const priority = priorityConfig[task.priority || 'medium'];
@@ -37,10 +38,26 @@ export function TaskCard({ task, onToggle, onDelete, onEdit, onTogglePin, onUpda
 
   const [isLabelSelectorOpen, setIsLabelSelectorOpen] = React.useState(false);
   const [isAssigneeSelectorOpen, setIsAssigneeSelectorOpen] = React.useState(false);
+  const [showChecklist, setShowChecklist] = React.useState(false);
   const [newLabelName, setNewLabelName] = React.useState('');
   const [newMemberName, setNewMemberName] = React.useState('');
   const [isCreatingLabel, setIsCreatingLabel] = React.useState(false);
   const [isCreatingMember, setIsCreatingMember] = React.useState(false);
+
+  const checklistItems = task.checklist || [];
+  const completedChecklistItems = checklistItems.filter(i => i.completed).length;
+  const totalChecklistItems = checklistItems.length;
+  const checklistProgress = totalChecklistItems > 0 ? (completedChecklistItems / totalChecklistItems) * 100 : 0;
+
+  const handleToggleChecklistItem = (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation();
+    if (!onUpdateTask || !task.checklist) return;
+
+    const newChecklist = task.checklist.map(item =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    onUpdateTask(task.id, { checklist: newChecklist });
+  };
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -520,6 +537,60 @@ export function TaskCard({ task, onToggle, onDelete, onEdit, onTogglePin, onUpda
             )}>
               {task.description}
             </p>
+          )}
+
+          {/* Checklist Preview / Progress */}
+          {totalChecklistItems > 0 && (
+            <div className="mt-3 space-y-2">
+              <div 
+                onClick={() => setShowChecklist(!showChecklist)}
+                className="flex items-center justify-between group/checklist cursor-pointer"
+              >
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">
+                  <ListChecks className="w-3.5 h-3.5" />
+                  <span>Checklist ({completedChecklistItems}/{totalChecklistItems})</span>
+                </div>
+                <div className="w-24 h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${checklistProgress}%` }}
+                    className="h-full bg-emerald-500" 
+                  />
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {showChecklist && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="space-y-1.5 pt-1 overflow-hidden"
+                  >
+                    {checklistItems.map(item => (
+                      <div 
+                        key={item.id} 
+                        className="flex items-center gap-2 group/item"
+                        onClick={(e) => handleToggleChecklistItem(e, item.id)}
+                      >
+                        <button className={cn(
+                          "transition-colors",
+                          item.completed ? "text-emerald-500" : "text-slate-300 group-hover/item:text-slate-400"
+                        )}>
+                          {item.completed ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                        </button>
+                        <span className={cn(
+                          "text-xs transition-all",
+                          item.completed ? "text-slate-400 line-through" : "text-slate-600"
+                        )}>
+                          {item.text}
+                        </span>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
 
           <div className="mt-3 flex items-center gap-3 text-xs">

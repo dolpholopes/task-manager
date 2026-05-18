@@ -47,7 +47,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 // Sortable Task Card Wrapper
-function SortableTaskCard({ task, ...props }: { task: Task } & any) {
+function SortableTaskCard({ task, onUpdateTask, ...props }: { task: Task, onUpdateTask?: (id: string, data: Partial<Task>) => void } & any) {
   const {
     attributes,
     listeners,
@@ -65,7 +65,7 @@ function SortableTaskCard({ task, ...props }: { task: Task } & any) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <TaskCard task={task} {...props} />
+      <TaskCard task={task} onUpdateTask={onUpdateTask} {...props} />
     </div>
   );
 }
@@ -1155,6 +1155,11 @@ export default function App() {
     }
   };
 
+  const patchTask = async (id: string, data: Partial<Task>) => {
+    if (!user || !activeWorkspaceId || !canWrite) return;
+    await updateDoc(doc(db, `workspaces/${activeWorkspaceId}/tasks`, id), data);
+  };
+
   const deleteTask = async (id: string) => {
     if (!user || !activeWorkspaceId || !canWrite) return;
     await deleteDoc(doc(db, `workspaces/${activeWorkspaceId}/tasks`, id));
@@ -1486,8 +1491,8 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans p-4">
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 max-w-md w-full text-center">
           <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 bg-primary-light rounded-2xl text-primary">
-              <Logo className="w-8 h-8" />
+            <div className="p-1.5 bg-primary-light rounded-2xl text-primary overflow-hidden">
+              <Logo className="w-10 h-10 object-cover" />
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Task Manager</h1>
           </div>
@@ -1516,8 +1521,8 @@ export default function App() {
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center justify-between mb-4 bg-white/80 backdrop-blur-md p-3 rounded-2xl border border-white shadow-sm z-50">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary-light rounded-xl text-primary">
-              <Logo className="w-6 h-6" />
+            <div className="p-1 bg-primary-light rounded-xl text-primary overflow-hidden">
+              <Logo className="w-8 h-8 object-cover" />
             </div>
             <span className="font-bold text-slate-900 text-sm">Task Manager</span>
           </div>
@@ -1577,8 +1582,8 @@ export default function App() {
               <header className={cn("text-left w-full hidden lg:block", isSidebarCollapsed && "hidden")}>
                 <div className={cn("flex items-center justify-between gap-3 mb-2", isSidebarCollapsed && "justify-center")}>
                   <div className={cn("flex items-center gap-3 transition-all duration-300", isSidebarCollapsed ? "lg:opacity-0 lg:w-0 lg:overflow-hidden" : "opacity-100")}>
-                    <div className="flex-shrink-0 p-2 bg-primary-light rounded-xl text-primary">
-                      <Logo className="w-8 h-8" />
+                    <div className="flex-shrink-0 p-1 bg-primary-light rounded-xl text-primary overflow-hidden">
+                      <Logo className="w-10 h-10 object-cover" />
                     </div>
                     <h1 className="text-xl font-bold tracking-tight text-slate-900 whitespace-nowrap">
                       Task Manager
@@ -1605,8 +1610,8 @@ export default function App() {
               {/* Mobile Only: Close Button & Logo */}
               <div className="flex lg:hidden items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-primary-light rounded-xl text-primary">
-                    <Logo className="w-6 h-6" />
+                  <div className="p-1 bg-primary-light rounded-xl text-primary overflow-hidden">
+                    <Logo className="w-8 h-8 object-cover" />
                   </div>
                   <span className="font-bold text-slate-900">Menu</span>
                 </div>
@@ -2211,6 +2216,7 @@ export default function App() {
                                 onTogglePin={toggleTaskPin}
                                 onUpdateLabel={updateTaskLabel}
                                 onUpdateAssignee={updateTaskAssignee}
+                                onUpdateTask={patchTask}
                                 onAddLabel={addLabel}
                                 onAddMember={addTeamMember}
                                 isCompact={card.viewMode === 'list'}
@@ -2261,6 +2267,7 @@ export default function App() {
                       teamMembers={teamMembers}
                       onUpdateLabel={updateTaskLabel}
                       onUpdateAssignee={updateTaskAssignee}
+                      onUpdateTask={patchTask}
                       onAddLabel={addLabel}
                       onAddMember={addTeamMember}
                       onToggle={() => {}}
